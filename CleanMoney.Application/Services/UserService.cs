@@ -50,4 +50,15 @@ public class UserService : IUserService
             Token = token 
         });
     }
+
+    public async Task<Result<Profile>> ProfileAsync(string userId, CancellationToken ct = default)
+    {
+        var user = await _users.GetByUsernameAsync(userId, ct);
+        if (user is null) return Result<Profile>.Fail("Usuário não encontrado.");
+        return Result<Profile>.Ok(new Profile { 
+            FullName = user.FullName, 
+            Username = user.Username, 
+            Email = user.Email 
+        });
+    }
 }

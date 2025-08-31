@@ -4,6 +4,7 @@ using Swashbuckle.AspNetCore.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSwaggerExamplesFromAssemblyOf<LoginRequestExample>();
+builder.Services.AddLowercaseUrls();
 builder.Services
     .AddInfrastructureConfig(builder.Configuration)  
     .AddAuthenticationConfig(builder.Configuration)
@@ -11,10 +12,7 @@ builder.Services
     .AddSwaggerConfig();
 
 var app = builder.Build();
-
 app.UseApiDefaults(app.Environment, swaggerAtRoot: true);
-
-// ===== SEED DO SUPER ADMIN =====
 await app.SeedAdminUserAsync();
 
 app.Run();

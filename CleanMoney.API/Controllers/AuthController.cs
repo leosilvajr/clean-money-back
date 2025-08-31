@@ -36,12 +36,16 @@ public class AuthController : ControllerBase
 
     [HttpGet("me")]
     [Authorize]
-    public IActionResult Me()
+    public async Task<IActionResult> Me()
     {
-        return Ok(new
-        {
-            userId = User.FindFirst("nameidentifier")?.Value ?? User.Identity?.Name,
-            username = User.Identity?.Name
-        });
+        var userId = User.FindFirst("nameidentifier")?.Value
+                     ?? User.Identity?.Name;
+
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized("Usuário não identificado.");
+
+        var user = await _userService.ProfileAsync(userId);
+        return Ok(user);
     }
+
 }

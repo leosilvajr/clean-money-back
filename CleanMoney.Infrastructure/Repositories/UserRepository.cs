@@ -11,6 +11,11 @@ public class UserRepository : IUserRepository
 
     public UserRepository(AppDbContext db) => _db = db;
 
+    public Task<Usuario?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        return _db.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, ct);
+    }
+
     public Task<Usuario?> GetByUsernameAsync(string username, CancellationToken ct = default) =>
         _db.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.Username == username, ct);
 
@@ -19,4 +24,6 @@ public class UserRepository : IUserRepository
 
     public Task SaveChangesAsync(CancellationToken ct = default) =>
         _db.SaveChangesAsync(ct);
+
+
 }
