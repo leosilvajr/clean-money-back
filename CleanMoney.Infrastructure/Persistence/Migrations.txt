@@ -1,0 +1,6 @@
+﻿Sempre necessario instalar o EntityFrameworkCore.Design:
+dotnet add CleanMoney.API package Microsoft.EntityFrameworkCore.Design
+
+
+dotnet ef migrations add PrimeiraMigration --project CleanMoney.Infrastructure/CleanMoney.Infrastructure.csproj --startup-project CleanMoney.API/CleanMoney.API.csproj
+dotnet ef database update --project CleanMoney.Infrastructure/CleanMoney.Infrastructure.csproj --startup-project CleanMoney.API/CleanMoney.API.csproj
