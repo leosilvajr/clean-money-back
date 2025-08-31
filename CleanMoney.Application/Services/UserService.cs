@@ -44,6 +44,10 @@ public class UserService : IUserService
             return Result<AuthResponse>.Fail("Credenciais inválidas.");
 
         var token = _jwt.GenerateToken(user);
-        return Result<AuthResponse>.Ok(new AuthResponse { Token = token, Username = user.Username });
+        return Result<AuthResponse>.Ok(new AuthResponse { 
+            FullName = user.FullName, 
+            Username = user.Username, 
+            Token = token 
+        });
     }
 }
