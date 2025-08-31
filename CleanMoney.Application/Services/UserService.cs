@@ -28,7 +28,9 @@ public class UserService : IUserService
         var user = new Usuario
         {
             Username = request.Username,
-            PasswordHash = _hasher.Hash(request.Password)
+            PasswordHash = _hasher.Hash(request.Password),
+            FullName = request.FullName,
+            Email = request.Email,
         };
 
         await _users.AddAsync(user, ct);
