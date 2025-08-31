@@ -25,7 +25,7 @@ public class UserService : IUserService
         if (existing is not null)
             return Result<string>.Fail("Usuário já existe.");
 
-        var user = new User
+        var user = new Usuario
         {
             Username = request.Username,
             PasswordHash = _hasher.Hash(request.Password)

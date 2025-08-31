@@ -15,7 +15,7 @@ public class JwtTokenGenerator : IJwtTokenGenerator
 
     public JwtTokenGenerator(IOptions<JwtSettings> options) => _settings = options.Value;
 
-    public string GenerateToken(User user)
+    public string GenerateToken(Usuario user)
     {
         var handler = new JwtSecurityTokenHandler();
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.SecretKey));
