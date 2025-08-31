@@ -52,9 +52,6 @@ coverage.*
 ## ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 
-## Entity Framework
-Migrations/
-
 ## Local configuration
 # Comente se quiser versionar
 launchSettings.json
