@@ -1,7 +1,9 @@
-﻿using CleanMoney.Application.Abstractions;
+﻿using CleanMoney.API.Configure.Examples;
+using CleanMoney.Application.Abstractions;
 using CleanMoney.Application.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Filters;
 
 namespace CleanMoney.API.Controllers;
 
@@ -24,6 +26,7 @@ public class AuthController : ControllerBase
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [SwaggerRequestExample(typeof(LoginRequest), typeof(LoginRequestExample))]
     public async Task<IActionResult> Login(LoginRequest request, CancellationToken ct)
     {
         var result = await _userService.LoginAsync(request, ct);

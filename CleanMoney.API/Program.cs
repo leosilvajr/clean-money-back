@@ -1,9 +1,11 @@
 using CleanMoney.API.Configure;
+using CleanMoney.API.Configure.Examples;
+using Swashbuckle.AspNetCore.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Services.AddSwaggerExamplesFromAssemblyOf<LoginRequestExample>();
 builder.Services
-    .AddInfrastructureConfig(builder.Configuration)   // sua configuração existente
+    .AddInfrastructureConfig(builder.Configuration)  
     .AddAuthenticationConfig(builder.Configuration)
     .AddControllersConfig()
     .AddSwaggerConfig();

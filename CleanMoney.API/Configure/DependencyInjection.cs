@@ -25,9 +25,16 @@ namespace CleanMoney.API.Configure
 
             // Repositórios
             services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<ICompetenciaRepository, CompetenciaRepository>();
+            services.AddScoped<IGrupoRepository, GrupoRepository>();
+            services.AddScoped<ILancamentoCompetenciaRepository, LancamentoCompetenciaRepository>();
 
             // Serviços de aplicação
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<ICompetenciaService, CompetenciaService>();
+            services.AddScoped<IGrupoService, GrupoService>();
+            services.AddScoped<ILancamentoCompetenciaService, LancamentoCompetenciaService>();
+
             services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
             services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
 
