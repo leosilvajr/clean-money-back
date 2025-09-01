@@ -2,7 +2,10 @@
 using CleanMoney.Application.DTOs;
 using CleanMoney.Domain.Entities;
 using CleanMoney.Domain.Repositories;
+using CleanMoney.Shared;              // QueryParams, QueryResult, PaginationOutput
 using CleanMoney.Shared.Responses;
+using Microsoft.EntityFrameworkCore;
+
 
 namespace CleanMoney.Application.Services;
 
@@ -31,14 +34,65 @@ public class GrupoService : IGrupoService
         return Result<GrupoResponse>.Ok(new GrupoResponse(e.Id, e.UsuarioId, e.Nome, e.Cor));
     }
 
-    public Task<Result<IReadOnlyList<GrupoResponse>>> ListByUserAsync(Guid userId, CancellationToken ct = default)
+    // ✅ Novo: retorna QueryResult<GrupoResponse> com paginação
+    public async Task<Result<QueryResult<GrupoResponse>>> ListByUserAsync(Guid userId, QueryParams query, CancellationToken ct = default)
     {
-        var list = _repo.QueryByUser(userId)
-                        .OrderBy(g => g.Nome)
-                        .Select(g => new GrupoResponse(g.Id, g.UsuarioId, g.Nome, g.Cor))
-                        .ToList()
-                        .AsReadOnly();
-        return Task.FromResult(Result<IReadOnlyList<GrupoResponse>>.Ok(list));
+        // Base query
+        IQueryable<Grupo> q = _repo.QueryByUser(userId);
+
+        // (Opcional) Search por Nome
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var s = query.Search.Trim().ToLower();
+            q = q.Where(g => g.Nome.ToLower().Contains(s));
+        }
+
+        // (Opcional) Ordering - usa somente o primeiro item (MVP)
+        if (query.Ordering?.Items is { Count: > 0 })
+        {
+            var item = query.Ordering.Items[0];
+            var field = (item.Field ?? string.Empty).Trim();
+            var desc = item.Direction == CleanMoney.Shared.SortDirection.Desc;
+
+            q = (field.ToLower()) switch
+            {
+                "cor" => desc ? q.OrderByDescending(g => g.Cor) : q.OrderBy(g => g.Cor),
+                // default: Nome
+                _ => desc ? q.OrderByDescending(g => g.Nome) : q.OrderBy(g => g.Nome),
+            };
+        }
+        else
+        {
+            // Ordem padrão estável
+            q = q.OrderBy(g => g.Nome);
+        }
+
+        // Total antes da paginação
+        var total = await q.CountAsync(ct);
+
+        // Paginação
+        var pageNumber = query.Pagination?.PageNumber > 0 ? query.Pagination!.PageNumber : 1;
+        var pageSize = query.Pagination?.PageSize is int ps && ps >= 0 ? ps : 10;
+
+        if (pageSize > 0)
+            q = q.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+
+        var items = await q
+            .Select(g => new GrupoResponse(g.Id, g.UsuarioId, g.Nome, g.Cor))
+            .ToListAsync(ct);
+
+        // Monta o QueryResult com os metadados do QueryParams
+        var result = new QueryResult<GrupoResponse>(query)
+        {
+            Items = items
+        };
+
+        // Preenche a paginação e calcula derivados
+        result.Pagination ??= new PaginationOutput { PageNumber = pageNumber, PageSize = pageSize };
+        result.Pagination.TotalItems = total;
+        result.Pagination.Calculate();
+
+        return Result<QueryResult<GrupoResponse>>.Ok(result);
     }
 
     public async Task<Result<GrupoResponse>> UpdateAsync(Guid id, Guid userId, GrupoUpdateRequest req, CancellationToken ct = default)

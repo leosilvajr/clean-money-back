@@ -1,6 +1,7 @@
 ﻿using CleanMoney.API.Configure;
 using CleanMoney.Application.Abstractions;
 using CleanMoney.Application.DTOs;
+using CleanMoney.Shared;                 // <-- QueryParams / QueryResult
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,11 +15,12 @@ public class GruposController : ControllerBase
     private readonly IGrupoService _service;
     public GruposController(IGrupoService service) => _service = service;
 
+    // GET /api/grupos?pagination.pageNumber=1&pagination.pageSize=10&search=finan&ordering.items[0].field=Nome&ordering.items[0].direction=Asc
     [HttpGet]
-    public async Task<IActionResult> List(CancellationToken ct)
+    public async Task<IActionResult> List([FromQuery] QueryParams query, CancellationToken ct)
     {
         var userId = User.GetUserId();
-        var r = await _service.ListByUserAsync(userId, ct);
+        var r = await _service.ListByUserAsync(userId, query, ct);
         return r.Success ? Ok(r.Data) : BadRequest(new { error = r.Error });
     }
 
@@ -31,7 +33,7 @@ public class GruposController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(GrupoCreateRequest req, CancellationToken ct)
+    public async Task<IActionResult> Create([FromBody] GrupoCreateRequest req, CancellationToken ct)
     {
         var userId = User.GetUserId();
         var r = await _service.CreateAsync(userId, req, ct);
@@ -39,7 +41,7 @@ public class GruposController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, GrupoUpdateRequest req, CancellationToken ct)
+    public async Task<IActionResult> Update(Guid id, [FromBody] GrupoUpdateRequest req, CancellationToken ct)
     {
         var userId = User.GetUserId();
         var r = await _service.UpdateAsync(id, userId, req, ct);
