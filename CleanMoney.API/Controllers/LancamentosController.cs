@@ -1,6 +1,7 @@
 ﻿using CleanMoney.API.Configure;
 using CleanMoney.Application.Abstractions;
 using CleanMoney.Application.DTOs;
+using CleanMoney.Shared; // QueryParams
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,11 +15,12 @@ public class LancamentosController : ControllerBase
     private readonly ILancamentoCompetenciaService _service;
     public LancamentosController(ILancamentoCompetenciaService service) => _service = service;
 
+    // GET /api/lancamentos?pagination.pageNumber=1&pagination.pageSize=10&search=aluguel&ordering.items[0].field=Data&ordering.items[0].direction=Desc
     [HttpGet]
-    public async Task<IActionResult> List(CancellationToken ct)
+    public async Task<IActionResult> List([FromQuery] QueryParams query, CancellationToken ct)
     {
         var userId = User.GetUserId();
-        var r = await _service.ListByUserAsync(userId, ct);
+        var r = await _service.ListByUserAsync(userId, query, ct);
         return r.Success ? Ok(r.Data) : BadRequest(new { error = r.Error });
     }
 
@@ -31,7 +33,7 @@ public class LancamentosController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(LancamentoCreateRequest req, CancellationToken ct)
+    public async Task<IActionResult> Create([FromBody] LancamentoCreateRequest req, CancellationToken ct)
     {
         var userId = User.GetUserId();
         var r = await _service.CreateAsync(userId, req, ct);
@@ -39,7 +41,7 @@ public class LancamentosController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, LancamentoUpdateRequest req, CancellationToken ct)
+    public async Task<IActionResult> Update(Guid id, [FromBody] LancamentoUpdateRequest req, CancellationToken ct)
     {
         var userId = User.GetUserId();
         var r = await _service.UpdateAsync(id, userId, req, ct);

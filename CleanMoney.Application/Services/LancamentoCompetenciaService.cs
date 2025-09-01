@@ -2,7 +2,9 @@
 using CleanMoney.Application.DTOs;
 using CleanMoney.Domain.Entities;
 using CleanMoney.Domain.Repositories;
+using CleanMoney.Shared;              // QueryParams, QueryResult, PaginationOutput
 using CleanMoney.Shared.Responses;
+using System.Linq;
 
 namespace CleanMoney.Application.Services;
 
@@ -49,7 +51,6 @@ public class LancamentoCompetenciaService : ILancamentoCompetenciaService
             e.Id, e.UsuarioId, e.CompetenciaId, e.GrupoId, e.Data, e.Descricao, e.Valor));
     }
 
-
     public async Task<Result<LancamentoResponse>> GetAsync(Guid id, Guid userId, CancellationToken ct = default)
     {
         var e = await _repo.GetByIdAsync(id, ct);
@@ -58,14 +59,63 @@ public class LancamentoCompetenciaService : ILancamentoCompetenciaService
             e.Id, e.UsuarioId, e.CompetenciaId, e.GrupoId, e.Data, e.Descricao, e.Valor));
     }
 
-    public Task<Result<IReadOnlyList<LancamentoResponse>>> ListByUserAsync(Guid userId, CancellationToken ct = default)
+    // ✅ Novo: paginação + busca + ordenação
+    public Task<Result<QueryResult<LancamentoResponse>>> ListByUserAsync(Guid userId, QueryParams query, CancellationToken ct = default)
     {
-        var list = _repo.QueryByUser(userId)
-                        .OrderByDescending(l => l.Data)
-                        .Select(l => new LancamentoResponse(l.Id, l.UsuarioId, l.CompetenciaId, l.GrupoId, l.Data, l.Descricao, l.Valor))
-                        .ToList()
-                        .AsReadOnly();
-        return Task.FromResult(Result<IReadOnlyList<LancamentoResponse>>.Ok(list));
+        IQueryable<LancamentoCompetencia> q = _repo.QueryByUser(userId);
+
+        // (Opcional) Search em Descricao
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var s = query.Search.Trim().ToLower();
+            q = q.Where(l => (l.Descricao ?? string.Empty).ToLower().Contains(s));
+        }
+
+        // (Opcional) Ordering — só o primeiro item (MVP)
+        if (query.Ordering?.Items is { Count: > 0 })
+        {
+            var item = query.Ordering.Items[0];
+            var field = (item.Field ?? string.Empty).Trim().ToLower();
+            var desc = item.Direction == CleanMoney.Shared.SortDirection.Desc;
+
+            q = field switch
+            {
+                "valor" => desc ? q.OrderByDescending(l => l.Valor) : q.OrderBy(l => l.Valor),
+                "descricao" => desc ? q.OrderByDescending(l => l.Descricao) : q.OrderBy(l => l.Descricao),
+                "data" => desc ? q.OrderByDescending(l => l.Data) : q.OrderBy(l => l.Data),
+                _ => desc ? q.OrderByDescending(l => l.Data) : q.OrderBy(l => l.Data),
+            };
+        }
+        else
+        {
+            // padrão: Data desc
+            q = q.OrderByDescending(l => l.Data);
+        }
+
+        // Total antes da paginação
+        var total = q.Count(); // síncrono para não depender de EF Core na camada Application
+
+        // Paginação
+        var pageNumber = query.Pagination?.PageNumber > 0 ? query.Pagination!.PageNumber : 1;
+        var pageSize = query.Pagination?.PageSize is int ps && ps >= 0 ? ps : 10;
+
+        if (pageSize > 0)
+            q = q.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+
+        var items = q
+            .Select(l => new LancamentoResponse(l.Id, l.UsuarioId, l.CompetenciaId, l.GrupoId, l.Data, l.Descricao, l.Valor))
+            .ToList(); // síncrono
+
+        var result = new QueryResult<LancamentoResponse>(query)
+        {
+            Items = items
+        };
+
+        result.Pagination ??= new PaginationOutput { PageNumber = pageNumber, PageSize = pageSize };
+        result.Pagination.TotalItems = total;
+        result.Pagination.Calculate();
+
+        return Task.FromResult(Result<QueryResult<LancamentoResponse>>.Ok(result));
     }
 
     public async Task<Result<LancamentoResponse>> UpdateAsync(Guid id, Guid userId, LancamentoUpdateRequest req, CancellationToken ct = default)

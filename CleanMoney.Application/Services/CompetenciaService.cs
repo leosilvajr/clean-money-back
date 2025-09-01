@@ -2,7 +2,10 @@
 using CleanMoney.Application.DTOs;
 using CleanMoney.Domain.Entities;
 using CleanMoney.Domain.Repositories;
+using CleanMoney.Shared;              // QueryParams, QueryResult, PaginationOutput
 using CleanMoney.Shared.Responses;
+using System.Globalization;
+using System.Linq;
 
 namespace CleanMoney.Application.Services;
 
@@ -34,14 +37,80 @@ public class CompetenciaService : ICompetenciaService
         return Result<CompetenciaResponse>.Ok(new CompetenciaResponse(e.Id, e.UserId, e.DataCompetencia));
     }
 
-    public Task<Result<IReadOnlyList<CompetenciaResponse>>> ListByUserAsync(Guid userId, CancellationToken ct = default)
+    // ✅ Novo: paginação + (opcional) busca + ordenação
+    public Task<Result<QueryResult<CompetenciaResponse>>> ListByUserAsync(Guid userId, QueryParams query, CancellationToken ct = default)
     {
-        var list = _repo.QueryByUser(userId)
-                        .OrderByDescending(c => c.DataCompetencia)
-                        .Select(c => new CompetenciaResponse(c.Id, c.UserId, c.DataCompetencia))
-                        .ToList()
-                        .AsReadOnly();
-        return Task.FromResult(Result<IReadOnlyList<CompetenciaResponse>>.Ok(list));
+        IQueryable<Competencia> q = _repo.QueryByUser(userId);
+
+        // (Opcional) Search por ano "YYYY" ou mês/ano "MM/YYYY" (ou "YYYY-MM")
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var s = query.Search.Trim();
+
+            // ano (YYYY)
+            if (s.Length == 4 && int.TryParse(s, out var ano))
+            {
+                q = q.Where(c => c.DataCompetencia.Year == ano);
+            }
+            else
+            {
+                // mes/ano "MM/YYYY"
+                if (DateTime.TryParseExact(s, "MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var mmyyyy))
+                {
+                    q = q.Where(c => c.DataCompetencia.Year == mmyyyy.Year && c.DataCompetencia.Month == mmyyyy.Month);
+                }
+                // "YYYY-MM"
+                else if (DateTime.TryParseExact(s, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var yyyymm))
+                {
+                    q = q.Where(c => c.DataCompetencia.Year == yyyymm.Year && c.DataCompetencia.Month == yyyymm.Month);
+                }
+                // formatos não reconhecidos → ignora
+            }
+        }
+
+        // (Opcional) Ordering — apenas o primeiro item (MVP)
+        if (query.Ordering?.Items is { Count: > 0 })
+        {
+            var item = query.Ordering.Items[0];
+            var field = (item.Field ?? string.Empty).Trim().ToLower();
+            var desc = item.Direction == CleanMoney.Shared.SortDirection.Desc;
+
+            q = field switch
+            {
+                "datacompetencia" => desc ? q.OrderByDescending(c => c.DataCompetencia) : q.OrderBy(c => c.DataCompetencia),
+                _ => desc ? q.OrderByDescending(c => c.DataCompetencia) : q.OrderBy(c => c.DataCompetencia),
+            };
+        }
+        else
+        {
+            // padrão: DataCompetencia desc
+            q = q.OrderByDescending(c => c.DataCompetencia);
+        }
+
+        // Total antes da paginação
+        var total = q.Count(); // síncrono (não exige EF no Application)
+
+        // Paginação
+        var pageNumber = query.Pagination?.PageNumber > 0 ? query.Pagination!.PageNumber : 1;
+        var pageSize = query.Pagination?.PageSize is int ps && ps >= 0 ? ps : 10;
+
+        if (pageSize > 0)
+            q = q.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+
+        var items = q
+            .Select(c => new CompetenciaResponse(c.Id, c.UserId, c.DataCompetencia))
+            .ToList(); // síncrono
+
+        var result = new QueryResult<CompetenciaResponse>(query)
+        {
+            Items = items
+        };
+
+        result.Pagination ??= new PaginationOutput { PageNumber = pageNumber, PageSize = pageSize };
+        result.Pagination.TotalItems = total;
+        result.Pagination.Calculate();
+
+        return Task.FromResult(Result<QueryResult<CompetenciaResponse>>.Ok(result));
     }
 
     public async Task<Result<CompetenciaResponse>> UpdateAsync(Guid id, Guid userId, CompetenciaUpdateRequest req, CancellationToken ct = default)
